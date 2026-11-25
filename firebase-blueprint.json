@@ -1,0 +1,387 @@
+{
+  "entities": {
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Private user account record isolating PII such as email.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "displayName", "createdAt", "updatedAt"]
+    },
+    "StudyGroup": {
+      "title": "StudyGroup",
+      "description": "Shared GATE 2027 ECE duo group configuration.",
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "type": "string",
+          "enum": ["gate-2027-ece"]
+        },
+        "eceExamDate": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 16,
+          "pattern": "^2027-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "createdByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "updatedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["groupId", "eceExamDate", "createdByUid", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "Claimed student slot (Tharun or Sreevishnu) without PII.",
+      "type": "object",
+      "properties": {
+        "profileId": {
+          "type": "string",
+          "enum": ["tharun", "sreevishnu"]
+        },
+        "displayName": {
+          "type": "string",
+          "enum": ["Tharun", "Sreevishnu"]
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["profileId", "displayName", "ownerUid", "createdAt", "updatedAt"]
+    },
+    "GroupMember": {
+      "title": "GroupMember",
+      "description": "Verified membership mapping from auth UID to student profile.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "profileId": {
+          "type": "string",
+          "enum": ["tharun", "sreevishnu"]
+        },
+        "displayName": {
+          "type": "string",
+          "enum": ["Tharun", "Sreevishnu"]
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "profileId", "displayName", "joinedAt"]
+    },
+    "SyllabusProgress": {
+      "title": "SyllabusProgress",
+      "description": "Per-student GATE 2027 ECE syllabus topic status map.",
+      "type": "object",
+      "properties": {
+        "profileId": {
+          "type": "string",
+          "enum": ["tharun", "sreevishnu"]
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "statuses": {
+          "type": "object"
+        },
+        "completedCount": {
+          "type": "integer"
+        },
+        "inProgressCount": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["profileId", "ownerUid", "statuses", "completedCount", "inProgressCount", "createdAt", "updatedAt"]
+    },
+    "StudentSummary": {
+      "title": "StudentSummary",
+      "description": "Real-time partner-readable summary of daily tasks and study hours.",
+      "type": "object",
+      "properties": {
+        "profileId": {
+          "type": "string",
+          "enum": ["tharun", "sreevishnu"]
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "tasksSnapshot": {
+          "type": "array"
+        },
+        "recentSessions": {
+          "type": "array"
+        },
+        "dailyStudySeconds": {
+          "type": "object"
+        },
+        "totalStudySeconds": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["profileId", "ownerUid", "tasksSnapshot", "recentSessions", "dailyStudySeconds", "totalStudySeconds", "createdAt", "updatedAt"]
+    },
+    "DailyTask": {
+      "title": "DailyTask",
+      "description": "Individual student daily study task.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "profileId": {
+          "type": "string",
+          "enum": ["tharun", "sreevishnu"]
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "visibleToUids": {
+          "type": "array"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "subjectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "topicId": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "topicTitle": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "targetDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "completedAtMs": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "profileId",
+        "ownerUid",
+        "visibleToUids",
+        "title",
+        "subjectId",
+        "topicId",
+        "topicTitle",
+        "targetDate",
+        "completed",
+        "completedAtMs",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudySession": {
+      "title": "StudySession",
+      "description": "Completed study timer session record.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "profileId": {
+          "type": "string",
+          "enum": ["tharun", "sreevishnu"]
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "visibleToUids": {
+          "type": "array"
+        },
+        "subjectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "subjectName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["countdown", "stopwatch"]
+        },
+        "durationSeconds": {
+          "type": "integer"
+        },
+        "studyDate": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "profileId",
+        "ownerUid",
+        "visibleToUids",
+        "subjectId",
+        "subjectName",
+        "mode",
+        "durationSeconds",
+        "studyDate",
+        "note",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Private user PII document readable and writable only by the owner."
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "#/entities/StudyGroup" },
+      "description": "Shared GATE 2027 ECE duo group configuration."
+    },
+    "/groups/{groupId}/profiles/{profileId}": {
+      "schema": { "$ref": "#/entities/StudentProfile" },
+      "description": "Student profile slot claim records for Tharun and Sreevishnu."
+    },
+    "/groups/{groupId}/members/{memberUid}": {
+      "schema": { "$ref": "#/entities/GroupMember" },
+      "description": "Duo membership index linking Firebase Auth UID to student profileId."
+    },
+    "/groups/{groupId}/syllabusProgress/{profileId}": {
+      "schema": { "$ref": "#/entities/SyllabusProgress" },
+      "description": "Per-student syllabus topic completion state."
+    },
+    "/groups/{groupId}/studentSummaries/{profileId}": {
+      "schema": { "$ref": "#/entities/StudentSummary" },
+      "description": "Per-student real-time snapshot of tasks and study hours for duo sync."
+    },
+    "/groups/{groupId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/DailyTask" },
+      "description": "Individual daily study tasks owned by each student."
+    },
+    "/groups/{groupId}/studySessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/StudySession" },
+      "description": "Individual completed study timer sessions owned by each student."
+    }
+  }
+}

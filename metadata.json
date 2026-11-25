@@ -1,0 +1,6 @@
+{
+  "name": "GATE 2027 ECE Duo Tracker",
+  "description": "Real-time syllabus completion and daily study tracker for Tharun and Sreevishnu preparing for GATE 2027 Electronics and Communication Engineering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

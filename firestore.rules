@@ -1,0 +1,350 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedSignedIn() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isGroupId(groupId) {
+      return groupId == 'gate-2027-ece';
+    }
+
+    function isValidProfileId(profileId) {
+      return profileId in ['tharun', 'sreevishnu'];
+    }
+
+    function isDuoMember(groupId) {
+      return isVerifiedSignedIn() &&
+        isGroupId(groupId) &&
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    function memberProfileId(groupId) {
+      return get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.profileId;
+    }
+
+    // Entity Validation Helpers
+    function isValidUserPrivate(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'displayName', 'createdAt', 'updatedAt']) &&
+        data.uid == userId &&
+        data.uid == request.auth.uid &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStudyGroup(data, groupId) {
+      return data.keys().hasAll(['groupId', 'eceExamDate', 'createdByUid', 'updatedByUid', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['groupId', 'eceExamDate', 'createdByUid', 'updatedByUid', 'createdAt', 'updatedAt']) &&
+        data.groupId == groupId &&
+        data.eceExamDate is string && data.eceExamDate.size() == 16 &&
+        data.eceExamDate.matches('^2027-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]$') &&
+        isValidId(data.createdByUid) &&
+        data.updatedByUid == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStudentProfile(data, profileId) {
+      return data.keys().hasAll(['profileId', 'displayName', 'ownerUid', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['profileId', 'displayName', 'ownerUid', 'createdAt', 'updatedAt']) &&
+        isValidProfileId(profileId) &&
+        data.profileId == profileId &&
+        ((profileId == 'tharun' && data.displayName == 'Tharun') ||
+         (profileId == 'sreevishnu' && data.displayName == 'Sreevishnu')) &&
+        data.ownerUid == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGroupMember(data, memberUid) {
+      return data.keys().hasAll(['uid', 'profileId', 'displayName', 'joinedAt']) &&
+        data.keys().hasOnly(['uid', 'profileId', 'displayName', 'joinedAt']) &&
+        data.uid == memberUid &&
+        data.uid == request.auth.uid &&
+        isValidProfileId(data.profileId) &&
+        ((data.profileId == 'tharun' && data.displayName == 'Tharun') ||
+         (data.profileId == 'sreevishnu' && data.displayName == 'Sreevishnu')) &&
+        data.joinedAt is timestamp;
+    }
+
+    function isValidSyllabusProgress(data, profileId) {
+      return data.keys().hasAll(['profileId', 'ownerUid', 'statuses', 'completedCount', 'inProgressCount', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['profileId', 'ownerUid', 'statuses', 'completedCount', 'inProgressCount', 'createdAt', 'updatedAt']) &&
+        isValidProfileId(profileId) &&
+        data.profileId == profileId &&
+        data.ownerUid == request.auth.uid &&
+        data.statuses is map && data.statuses.size() <= 300 &&
+        data.completedCount is int && data.completedCount >= 0 && data.completedCount <= 300 &&
+        data.inProgressCount is int && data.inProgressCount >= 0 && data.inProgressCount <= 300 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStudentSummary(data, profileId) {
+      return data.keys().hasAll(['profileId', 'ownerUid', 'tasksSnapshot', 'recentSessions', 'dailyStudySeconds', 'totalStudySeconds', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['profileId', 'ownerUid', 'tasksSnapshot', 'recentSessions', 'dailyStudySeconds', 'totalStudySeconds', 'createdAt', 'updatedAt']) &&
+        isValidProfileId(profileId) &&
+        data.profileId == profileId &&
+        data.ownerUid == request.auth.uid &&
+        data.tasksSnapshot is list && data.tasksSnapshot.size() <= 200 &&
+        (data.tasksSnapshot.size() == 0 || data.tasksSnapshot[0] is map) &&
+        data.recentSessions is list && data.recentSessions.size() <= 50 &&
+        (data.recentSessions.size() == 0 || data.recentSessions[0] is map) &&
+        data.dailyStudySeconds is map && data.dailyStudySeconds.size() <= 400 &&
+        data.totalStudySeconds is int && data.totalStudySeconds >= 0 && data.totalStudySeconds <= 36000000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDailyTask(data, taskId) {
+      return data.keys().hasAll([
+          'id', 'profileId', 'ownerUid', 'visibleToUids', 'title', 'subjectId',
+          'topicId', 'topicTitle', 'targetDate', 'completed', 'completedAtMs', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'profileId', 'ownerUid', 'visibleToUids', 'title', 'subjectId',
+          'topicId', 'topicTitle', 'targetDate', 'completed', 'completedAtMs', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(taskId) &&
+        data.id == taskId &&
+        isValidProfileId(data.profileId) &&
+        data.ownerUid == request.auth.uid &&
+        data.visibleToUids is list &&
+        data.visibleToUids.size() >= 1 && data.visibleToUids.size() <= 2 &&
+        data.visibleToUids[0] is string &&
+        (data.visibleToUids.size() == 1 || data.visibleToUids[1] is string) &&
+        request.auth.uid in data.visibleToUids &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.subjectId is string && data.subjectId.size() >= 1 && data.subjectId.size() <= 60 &&
+        data.topicId is string && data.topicId.size() <= 100 &&
+        data.topicTitle is string && data.topicTitle.size() <= 200 &&
+        data.targetDate is string && data.targetDate.size() == 10 &&
+        data.targetDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.completed is bool &&
+        data.completedAtMs is int && data.completedAtMs >= 0 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStudySession(data, sessionId) {
+      return data.keys().hasAll([
+          'id', 'profileId', 'ownerUid', 'visibleToUids', 'subjectId', 'subjectName',
+          'mode', 'durationSeconds', 'studyDate', 'note', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'profileId', 'ownerUid', 'visibleToUids', 'subjectId', 'subjectName',
+          'mode', 'durationSeconds', 'studyDate', 'note', 'createdAt'
+        ]) &&
+        isValidId(sessionId) &&
+        data.id == sessionId &&
+        isValidProfileId(data.profileId) &&
+        data.ownerUid == request.auth.uid &&
+        data.visibleToUids is list &&
+        data.visibleToUids.size() >= 1 && data.visibleToUids.size() <= 2 &&
+        data.visibleToUids[0] is string &&
+        (data.visibleToUids.size() == 1 || data.visibleToUids[1] is string) &&
+        request.auth.uid in data.visibleToUids &&
+        data.subjectId is string && data.subjectId.size() >= 1 && data.subjectId.size() <= 60 &&
+        data.subjectName is string && data.subjectName.size() >= 1 && data.subjectName.size() <= 100 &&
+        data.mode in ['countdown', 'stopwatch'] &&
+        data.durationSeconds is int && data.durationSeconds >= 60 && data.durationSeconds <= 43200 &&
+        data.studyDate is string && data.studyDate.size() == 10 &&
+        data.studyDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.note is string && data.note.size() <= 200 &&
+        data.createdAt is timestamp;
+    }
+
+    // 1. Private User PII Collection
+    match /users/{userId} {
+      allow get: if isVerifiedSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if isVerifiedSignedIn() &&
+        isValidId(userId) &&
+        request.auth.uid == userId &&
+        isValidUserPrivate(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedSignedIn() &&
+        isValidId(userId) &&
+        request.auth.uid == userId &&
+        isValidUserPrivate(incoming(), userId) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'updatedAt']) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // 2. Shared Private Study Group Configuration
+    match /groups/{groupId} {
+      allow get: if isDuoMember(groupId);
+      allow list: if false;
+      allow create: if isVerifiedSignedIn() &&
+        isGroupId(groupId) &&
+        isValidStudyGroup(incoming(), groupId) &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        existsAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+      allow update: if isDuoMember(groupId) &&
+        isValidStudyGroup(incoming(), groupId) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['eceExamDate', 'updatedByUid', 'updatedAt']) &&
+        incoming().createdByUid == existing().createdByUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if false;
+
+      // 3. Student Profile Claim Slots ('tharun' and 'sreevishnu')
+      match /profiles/{profileId} {
+        allow get: if isVerifiedSignedIn() && isGroupId(groupId) && isValidProfileId(profileId);
+        allow list: if false;
+        allow create: if isVerifiedSignedIn() &&
+          isGroupId(groupId) &&
+          isValidStudentProfile(incoming(), profileId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          existsAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
+          getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.profileId == profileId;
+        allow update: if isDuoMember(groupId) &&
+          isValidStudentProfile(incoming(), profileId) &&
+          existing().ownerUid == request.auth.uid &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['updatedAt']) &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time;
+        allow delete: if false;
+      }
+
+      // 4. Duo Membership Mapping
+      match /members/{memberUid} {
+        allow get: if isVerifiedSignedIn() && isGroupId(groupId) && isValidId(memberUid) && request.auth.uid == memberUid;
+        allow list: if false;
+        allow create: if isVerifiedSignedIn() &&
+          isGroupId(groupId) &&
+          isValidId(memberUid) &&
+          isValidGroupMember(incoming(), memberUid) &&
+          incoming().joinedAt == request.time &&
+          existsAfter(/databases/$(database)/documents/groups/$(groupId)/profiles/$(incoming().profileId)) &&
+          getAfter(/databases/$(database)/documents/groups/$(groupId)/profiles/$(incoming().profileId)).data.ownerUid == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      // 5. Per-Student Syllabus Progress
+      match /syllabusProgress/{profileId} {
+        allow get: if isDuoMember(groupId) && isValidProfileId(profileId);
+        allow list: if false;
+        allow create: if isDuoMember(groupId) &&
+          isValidSyllabusProgress(incoming(), profileId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          memberProfileId(groupId) == profileId;
+        allow update: if isDuoMember(groupId) &&
+          isValidSyllabusProgress(incoming(), profileId) &&
+          existing().ownerUid == request.auth.uid &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['statuses', 'completedCount', 'inProgressCount', 'updatedAt']) &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().profileId == existing().profileId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time;
+        allow delete: if false;
+      }
+
+      // 6. Per-Student Real-Time Summary
+      match /studentSummaries/{profileId} {
+        allow get: if isDuoMember(groupId) && isValidProfileId(profileId);
+        allow list: if false;
+        allow create: if isDuoMember(groupId) &&
+          isValidStudentSummary(incoming(), profileId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          memberProfileId(groupId) == profileId;
+        allow update: if isDuoMember(groupId) &&
+          isValidStudentSummary(incoming(), profileId) &&
+          existing().ownerUid == request.auth.uid &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['tasksSnapshot', 'recentSessions', 'dailyStudySeconds', 'totalStudySeconds', 'updatedAt']) &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().profileId == existing().profileId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time;
+        allow delete: if false;
+      }
+
+      // 7. Individual Daily Tasks
+      match /tasks/{taskId} {
+        allow get: if isDuoMember(groupId) && isValidId(taskId);
+        allow list: if isVerifiedSignedIn() &&
+          isGroupId(groupId) &&
+          (resource.data.ownerUid == request.auth.uid || request.auth.uid in resource.data.visibleToUids);
+        allow create: if isDuoMember(groupId) &&
+          isValidDailyTask(incoming(), taskId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          memberProfileId(groupId) == incoming().profileId;
+        allow update: if isDuoMember(groupId) &&
+          isValidDailyTask(incoming(), taskId) &&
+          existing().ownerUid == request.auth.uid &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'completedAtMs', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subjectId', 'topicId', 'topicTitle', 'targetDate', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['visibleToUids', 'updatedAt'])
+          ) &&
+          incoming().id == existing().id &&
+          incoming().profileId == existing().profileId &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time;
+        allow delete: if isDuoMember(groupId) &&
+          isValidId(taskId) &&
+          existing().ownerUid == request.auth.uid;
+      }
+
+      // 8. Individual Study Timer Sessions
+      match /studySessions/{sessionId} {
+        allow get: if isDuoMember(groupId) && isValidId(sessionId);
+        allow list: if isVerifiedSignedIn() &&
+          isGroupId(groupId) &&
+          (resource.data.ownerUid == request.auth.uid || request.auth.uid in resource.data.visibleToUids);
+        allow create: if isDuoMember(groupId) &&
+          isValidStudySession(incoming(), sessionId) &&
+          incoming().createdAt == request.time &&
+          memberProfileId(groupId) == incoming().profileId;
+        allow update: if isDuoMember(groupId) &&
+          isValidStudySession(incoming(), sessionId) &&
+          existing().ownerUid == request.auth.uid &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['visibleToUids']) &&
+          incoming().id == existing().id &&
+          incoming().profileId == existing().profileId &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().createdAt == existing().createdAt;
+        allow delete: if isDuoMember(groupId) &&
+          isValidId(sessionId) &&
+          existing().ownerUid == request.auth.uid;
+      }
+    }
+  }
+}
